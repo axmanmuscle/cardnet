@@ -3,7 +3,8 @@ import torch.nn.functional as F
 from torchvision.models import resnet18
 
 def build_resnet18(num_classes, freeze_backbone=True):
-    model = resnet18(pretrained=True)
+    # model = resnet18(pretrained=True)
+    model = resnet18(weights='IMAGENET1K_V1')
 
     # for param in model.parameters():
     #     param.requires_grad = True  # or freeze some layers if needed

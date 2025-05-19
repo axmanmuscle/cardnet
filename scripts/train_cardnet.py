@@ -11,7 +11,7 @@ from tqdm import tqdm
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
-from utils import show_val_samples, show_grad_cam
+from cardnet.utils import show_val_samples, show_grad_cam
 
 from collections import Counter
 from torch.utils.data import Subset
@@ -66,6 +66,7 @@ def make_data(data_dir, train_frac = 0.8):
   # Load full dataset
   # full_dataset = CardDataset(root_dir=data_dir, transform=None)
   full_dataset = ImageFolder(root=data_dir, transform=None)
+  print(full_dataset.class_to_idx)
   class_names = full_dataset.classes
   num_classes = len(class_names)
   
@@ -147,12 +148,12 @@ def train_model(model, train_loader, val_loader, val_data, device, num_epochs=10
                 all_preds.extend(preds.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())              
 
-        if epoch % 25 == 0 or epoch == num_epochs - 1:
-          print("Visualizing predictions on val set:")
-          show_val_samples(model, val_data, class_names, device, num_images=4)
+        # if epoch % 25 == 0 or epoch == num_epochs - 1:
+        #   print("Visualizing predictions on val set:")
+        #   show_val_samples(model, val_data, class_names, device, num_images=4)
 
-          print("🔥 Grad-CAM Visualizations:")
-          show_grad_cam(model, val_data, class_names, device, num_images=4)
+        #   print("🔥 Grad-CAM Visualizations:")
+        #   show_grad_cam(model, val_data, class_names, device, num_images=4)
 
         # if epoch == num_epochs - 1:
         #   cm = confusion_matrix(all_labels, all_preds)
@@ -168,6 +169,19 @@ def train_model(model, train_loader, val_loader, val_data, device, num_epochs=10
         print(f"\nEpoch {epoch+1} Summary:")
         print(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
         print(f"Val   Loss: {val_loss:.4f} | Val   Acc: {val_acc:.2f}%\n")
+
+
+    # Save model weights
+    model_path = "models/resnet_front.pth"
+    torch.save(model.state_dict(), model_path)
+    print(f"✅ Model saved to {model_path}")
+
+    class_name_path = "models/class_names.txt"
+    with open(class_name_path, "w") as f:
+      for cls in class_names:
+        f.write(cls + "\n")
+
+    print(f"✅ Class names saved to {class_name_path}")
 
 
 def main():

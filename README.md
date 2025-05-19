@@ -28,3 +28,8 @@ This project builds and deploys a real-time computer vision system to detect and
 git clone https://github.com/yourusername/cardnet
 cd cardnet
 pip install -r requirements.txt
+
+```
+## To Do
+
+Built a lot of capability today. Biggest thing up next is that the model wont detect cards when theyre held in my hand. next thing to do then is to train yolo to see it and pipe yolo into the model. i have labels and images created in ``/home/alex/Documents/projects/label_studio`` so we just need to train yolo on that.
