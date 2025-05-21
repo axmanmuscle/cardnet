@@ -1,4 +1,5 @@
 __pycache__/
+card_env/
 *.pyc
 data/
 models/

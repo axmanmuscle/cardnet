@@ -5,6 +5,7 @@ import numpy as np
 from torchvision import transforms
 from cardnet.model import build_resnet18
 from cardnet.utils import load_class_names
+from ultralytics import YOLO
 
 def find_card_contour(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -87,39 +88,83 @@ def main(model_path, class_names_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
+    # YOLO detector
+    detector = YOLO("/home/alex/Documents/projects/label_studio/runs/obb/train/weights/best.pt")
+
     # Start webcam
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("❌ Could not open webcam.")
+        print("Could not open webcam.")
         return
 
-    print("📷 Press 'q' to quit.")
+    print("Press 'q' to quit.")
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
+        # YOLO prediction
+        # Run YOLO detection
+        results = detector(frame, verbose=False)
+        # print(f'number of results: {len(results)}')
+
+        if len(results) > 0:
+          for i, result in enumerate(results):
+            # print(i)
+            # print(result)
+            if result.obb.xyxy.nelement() > 0:
+              x1, y1, x2, y2 = result.obb.xyxy[0].int().tolist()
+              confidence = result.obb.conf[0].item()
+              print(f"  [{i}] Box: ({x1},{y1}) → ({x2},{y2}) | conf: {confidence:.2f}")
+
+              # cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+              # cv2.putText(frame, f"card ({confidence:.2f})", (x1, y1 - 10),
+              #             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+              # Crop ROI
+              roi = frame[y1:y2, x1:x2]
+              input_tensor = preprocess_frame(roi).to(device)
+
+              # Run classifier
+              with torch.no_grad():
+                  output = model(input_tensor)
+                  pred = output.argmax(dim=1).item()
+                  pred_class = class_names[pred]
+
+              # Annotate frame
+              label = f"{pred_class} ({confidence:.2f})"
+              cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+              cv2.putText(frame, label, (x1, y1 - 10),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        else:
+            cv2.putText(frame, "No card detected", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+
+        cv2.imshow("Card Classifier (YOLO + ResNet)", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
         # Preprocess + predict
         # input_tensor = preprocess_frame(frame).to(device)
-        contour = find_card_contour(frame)
-        if contour is not None:
-            x, y, w, h = cv2.boundingRect(contour)
+        # contour = find_card_contour(frame)
+        # if contour is not None:
+        #     x, y, w, h = cv2.boundingRect(contour)
             
-            roi = frame[y:y+h, x:x+w]
-            input_tensor = preprocess_frame(roi).to(device)
+        #     roi = frame[y:y+h, x:x+w]
+        #     input_tensor = preprocess_frame(roi).to(device)
 
-            cv2.imshow("Model Input (ROI)", roi)
+        #     cv2.imshow("Model Input (ROI)", roi)
 
-            with torch.no_grad():
-                output = model(input_tensor)
-                pred = output.argmax(dim=1).item()
-                pred_class = class_names[pred]
+        #     with torch.no_grad():
+        #         output = model(input_tensor)
+        #         pred = output.argmax(dim=1).item()
+        #         pred_class = class_names[pred]
 
-            # Draw the box
-            cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
-            draw_prediction(frame, f"Prediction: {pred_class}")
-        else:
-            draw_prediction(frame, "No card detected")
+        #     # Draw the box
+        #     cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
+        #     draw_prediction(frame, f"Prediction: {pred_class}")
+        # else:
+        #     draw_prediction(frame, "No card detected")
 
         # with torch.no_grad():
         #     output = model(input_tensor)
